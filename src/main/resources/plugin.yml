@@ -1,0 +1,24 @@
+name: SleepyBlob
+main: SleepyBlob
+version: 1.0
+api-version: 1.16
+author: sleepysquish
+
+commands:
+  sl:
+    description: sleepy blob commands
+    aliases: _sleepyblob
+    permission: sleepyblob.admin
+    usage: /sl <etc> <etc>
+    permission-message: no. sorry.
+  pay:
+    usage: /pay <player> <amount>
+    permission: sleepyblob.common
+
+permissions:
+  sleepyblob.admin:
+    description: allows you to do anything with sleepyblob
+    default: op
+  sleepyblob.common:
+    description: for normal people
+    default: true
