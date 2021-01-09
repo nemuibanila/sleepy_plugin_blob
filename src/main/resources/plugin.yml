@@ -14,6 +14,11 @@ commands:
   pay:
     usage: /pay <player> <amount>
     permission: sleepyblob.common
+  money:
+    usage: /money
+    aliases:
+      - orerus
+    permission: sleepyblob.common
 
 permissions:
   sleepyblob.admin:
