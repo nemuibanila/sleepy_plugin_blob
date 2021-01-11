@@ -19,6 +19,9 @@ commands:
     aliases:
       - orerus
     permission: sleepyblob.common
+  claim:
+    usage: /claim
+    permission: sleepyblob.common
 
 permissions:
   sleepyblob.admin:
