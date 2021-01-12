@@ -1,11 +1,12 @@
 
 import com.comphenix.protocol.*
 import com.comphenix.protocol.wrappers.WrappedChatComponent
-import com.google.gson.*
 import com.mongodb.client.*
 import com.mongodb.client.model.Filters.eq
 import com.mongodb.client.model.Updates.*
 import com.sk89q.worldedit.bukkit.BukkitAdapter
+import com.sk89q.worldedit.math.BlockVector3
+import com.sk89q.worldedit.world.World
 import com.sk89q.worldguard.WorldGuard
 import com.sk89q.worldguard.protection.flags.*
 import com.sk89q.worldguard.protection.regions.*
@@ -18,7 +19,9 @@ import org.bukkit.event.*
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.player.*
 import org.bukkit.plugin.java.JavaPlugin
+import java.lang.Math.pow
 import java.util.*
+import java.util.logging.Level
 import kotlin.collections.HashMap
 import kotlin.math.*
 
@@ -169,7 +172,12 @@ object history {
 
 class SleepyBlob : JavaPlugin(), Listener {
 
+    companion object {
+        lateinit var instance: SleepyBlob
+    }
+
     override fun onEnable() {
+        instance = this
         server.pluginManager.registerEvents(this, this)
         server.pluginManager.registerEvents(ClaimExecutor, this)
         getCommand("pay")!!.setExecutor(PayExecutor)
@@ -234,14 +242,18 @@ class SleepyBlob : JavaPlugin(), Listener {
 
 object Slp {
     val settings: Document
-    const val settings_version = 1
+    const val settings_version = 2
     var transaction_fee = 0.2
+    var base_claim_cost = 7.0
+    var halving_distance = 1000.0
 
     init {
         settings = mongo.get_settings()?: Document("name", "settings")
         for (kv in settings) {
             when(kv.key) {
                 "transaction_fee" -> transaction_fee = kv.value as Double
+                "base_claim_cost" -> base_claim_cost = kv.value as Double
+                "halving_distance" -> halving_distance = kv.value as Double
             }
         }
     }
@@ -251,6 +263,10 @@ object Slp {
         return "You currently have ${"%.2f".format(mongo.get_money(p.uniqueId.toString()))} ${currency}s"
     }
 
+    fun mformat(money: Double): String {
+        return "%.2f".format(money)
+    }
+
     fun start_claiming(): String {
         return "${ChatColor.AQUA}Please mark the corners of your claim using a gold hoe."
     }
@@ -258,6 +274,8 @@ object Slp {
     fun save_settings() {
         settings["settings_version"] = settings_version
         settings["transaction_fee"] = transaction_fee
+        settings["base_claim_cost"] = base_claim_cost
+        settings["halving_distance"] = halving_distance
         if(mongo.get_settings() != null) {
             mongo.globals.replaceOne(eq("name", "settings"), settings)
         } else {
@@ -294,13 +312,113 @@ object ClaimExecutor : CommandExecutor, Listener {
         // setup command chain -> let player set corners with right clicking
         // -> playerinteractevent
         if (args.size > 0) {
+            if ("cancel".startsWith(args[0])) {
+                reset_map_painting(sender as Player)
+                players_.remove(sender.uniqueId)
+                sender.sendMessage("${ChatColor.RED}Claiming cancelled.")
+            }
+
+            if("delete".startsWith(args[0]) && sender is Player) {
+                val player_location = BukkitAdapter.adapt(sender.location)
+                val container = WorldGuard.getInstance().platform.regionContainer
+                val regions = container.get(BukkitAdapter.adapt(sender.location.world))
+                if (regions == null) {
+                    SleepyBlob.instance.logger.log(Level.SEVERE, "Regions not loaded");
+                    return false;
+                }
+
+                val block_location = BlockVector3.at(player_location.blockX, player_location.blockY, player_location.blockZ)
+                val regions_in_area = regions.getApplicableRegions(block_location)
+                val player_regions = regions_in_area.filter { it.owners.contains(sender.uniqueId) }
+                val prompt = JsonChat()
+
+
+                if (args.size < 2) {
+                    // no id
+                    prompt.textln("-- your regions here --")
+                        .add_color(ChatColor.DARK_AQUA)
+
+                    for (claim in player_regions) {
+                        prompt.text("- ${claim.id} ")
+                        prompt.add_color(ChatColor.GREEN)
+                        prompt.text("[[Show]] ")
+                        prompt.add_color(ChatColor.DARK_GREEN)
+                        prompt.add_command("/showclaims ${claim.id}")
+                        prompt.text("[[Delete]]")
+                        prompt.add_command("/claim delete ${claim.id}")
+                        prompt.add_color(ChatColor.DARK_RED)
+                        prompt.textln("")
+                    }
+                    send_chat_packet(prompt.done(), sender)
+                    return true
+                } else {
+                    // with id
+                    val to_delete = player_regions.find { it.id == args[1] }
+                    if (to_delete == null) {
+                        sender.sendMessage("you dont own ${args[1]}, cant delete")
+                        return true
+                    }
+                    if (args.size > 2 && args[2].equals("confirm")) {
+                        // actually delete
+                        regions.removeRegion(to_delete.id)
+                        return true;
+                    }
+                    prompt.textln("You will NOT get a refund for your claim.")
+                        .add_color(ChatColor.DARK_RED)
+                        .text("Delete claim ${to_delete.id} :")
+                        .text("[[DELETE]]")
+                        .add_command("/claim delete ${to_delete.id} confirm")
+                    send_chat_packet(prompt.done(), sender)
+                    return true;
+                }
+            }
+
+            if("confirm".startsWith(args[0]) && sender is Player) {
+                val queue = players_.get(sender.uniqueId)
+                if (queue != null) {
+                    val confirm_element = queue.find { it.identifier == "confirm" }
+                    if (confirm_element == null) {
+                        sender.sendMessage("Either you took too long, or you have not yet marked your claim.")
+                        return false
+                    }
+
+                    val claim_cont = confirm_element!!.value as _ClaimContainer
+                    if (mongo.get_money(sender.uniqueId.toString()) >= claim_cont.cost) {
+                        val container = WorldGuard.getInstance().platform.regionContainer
+                        val regions = container.get(claim_cont.world)!!
+                        regions.addRegion(claim_cont.region)
+                        sender.sendMessage("Claim created!")
+                        if (claim_cont.cost < 0) {
+                            sender.server.logger.log(Level.SEVERE, "excuse me what? negative cost")
+                            return false
+                        }
+
+                        mongo.add_money(sender.uniqueId.toString(), -claim_cont.cost)
+                        mongo.pool_add_money(claim_cont.cost)
+                    } else {
+                        sender.sendMessage("You don't have enough ${Slp.currency}s")
+                    }
+                    reset_map_painting(sender)
+                    queue.clear()
+                    players_.remove(sender.uniqueId)
+                }
+            }
+
             // this is some other subcommand
             return false
         }
 
         if (sender is Player) {
+            players_.remove(sender.uniqueId)
+
             var variable_queue = LinkedList<CommandQueueElement>()
             players_.put(sender.uniqueId, variable_queue)
+            sender.server.scheduler.runTaskLater(SleepyBlob.instance, Runnable {
+                players_.remove(sender.uniqueId)
+                if (sender.isOnline) {
+                    sender.sendMessage("The /claim you started has timed out.")
+                }
+            }, 6000)
             sender.sendMessage(Slp.start_claiming())
         }
 
@@ -309,8 +427,6 @@ object ClaimExecutor : CommandExecutor, Listener {
 
     @EventHandler
     fun onPlayerInteract(e: PlayerInteractEvent) {
-        println(e)
-        println(players_)
         if (e.hasItem() && e.item!!.type == Material.GOLDEN_HOE && players_.containsKey(e.player.uniqueId) && e.hasBlock()) {
             e.isCancelled = true
 
@@ -321,26 +437,59 @@ object ClaimExecutor : CommandExecutor, Listener {
             val element = CommandQueueElement("coordinate")
             element.value = e.clickedBlock!!.location
             queue.add(element)
+            e.player.sendBlockChange(e.clickedBlock!!.location, Material.DIAMOND_BLOCK.createBlockData())
 
             val coords = queue.filter { it.identifier == "coordinate" }
             if (coords.size >= 2) {
+                queue.removeAll { it.identifier == "confirm" }
+
                 val a = coords[0].value as Location
                 val b = coords[1].value as Location
+                a.y = 255.0
+                b.y = 0.0
+
                 queue.removeAll(coords)
                 if (a.world != b.world) {
                     e.player.sendMessage("you're pretty cheeky, huh? trying to claim across dimensions")
+                    players_.remove(queue)
                     return
                 }
+
+                if(a.world!!.environment != org.bukkit.World.Environment.NORMAL) {
+                    e.player.sendMessage("Sorry, you can only claim in the overworld.. for now..")
+                    players_.remove(queue)
+                    return
+                }
+
+                val manhattan_corner_distance = abs(a.x-b.x)+1 + abs(a.z-b.z)+1
+
+                if(manhattan_corner_distance > 250.0) {
+                    e.player.sendMessage("thats a pretty big claim. (width+height>250) aborting..")
+                    players_.remove(queue)
+                    return
+                }
+
+                if(manhattan_corner_distance < 8) {
+                    e.player.sendMessage("that claim area is too small! width+height has to be >7")
+                }
+
                 val style = BlockStyle(Material.GOLD_BLOCK.createBlockData(), 3)
 
                 queue.add(draw_clientside_rect(a, b, e.player, style))
 
                 val sk_world = BukkitAdapter.adapt(a.world)
                 val container = WorldGuard.getInstance().platform.regionContainer
-                val regions = container.get(sk_world)!!
-
+                val regions = container.get(sk_world)
+                if (regions == null) {
+                    SleepyBlob.instance.logger.log(Level.SEVERE, "Regions for world $sk_world not loaded.")
+                    return;
+                }
                 // check if overlap with regions of others
-                val prospect = ProtectedCuboidRegion("${e.player.displayName}_${UUID.randomUUID()}",
+                var counter = 1
+                while (regions.hasRegion("${e.player.displayName}_${counter}")) {
+                    counter += 1
+                }
+                val prospect = ProtectedCuboidRegion("${e.player.displayName}_${counter}",
                     BukkitAdapter.asBlockVector(a),
                     BukkitAdapter.asBlockVector(b))
 
@@ -350,88 +499,90 @@ object ClaimExecutor : CommandExecutor, Listener {
                         e.player.sendMessage("${ChatColor.RED}This claim overlaps your old claims. This will not reflect in cost.")
                         continue
                     } else {
-                        e.player.sendMessage("${ChatColor.RED}Your selection overlaps with someone elses claim. /showclaims")
+                        e.player.sendMessage("${ChatColor.RED}Your selection overlaps with someone elses claim. /showclaims [does not work yet]")
                         return
                     }
                 }
 
-                var player_region = if(regions.hasRegion(e.player.uniqueId.toString())) {
+                val global_region_exists = regions.hasRegion(e.player.uniqueId.toString())
+                var player_region = if(global_region_exists) {
                     regions.getRegion(e.player.uniqueId.toString())
                 } else {
                     GlobalProtectedRegion(e.player.uniqueId.toString())
                 }
+
+                player_region!!.owners.addPlayer(e.player.uniqueId)
                 player_region!!.setFlag(Flags.FIRE_SPREAD, StateFlag.State.DENY)
                 player_region!!.setFlag(Flags.WATER_FLOW, StateFlag.State.ALLOW)
+                if(!global_region_exists) {
+                    regions.addRegion(player_region)
+                }
                 prospect.parent = player_region
+                prospect.owners.addPlayer(e.player.uniqueId)
+
+                val min_point = prospect.minimumPoint
+                val max_point = prospect.maximumPoint
+                val spawn = a.world!!.spawnLocation
+                var cost = 0.0
+                var amount = 0
+                for (x in min_point.x..max_point.x) {
+                    for(z in min_point.z..max_point.z) {
+                        val cpoint = Location(a.world, x.toDouble(), a.y, z.toDouble())
+                        cost += calculate_block_cost(cpoint, spawn, Slp.base_claim_cost, Slp.halving_distance)
+                        amount += 1
+                    }
+                }
+
+                val avg_distance = calculate_avg_distance(amount.toDouble(), cost, Slp.base_claim_cost, Slp.halving_distance)
+                val avg_cost = cost/amount
+                val xsize = max_point.x - min_point.x + 1
+                val zsize = max_point.z - min_point.z + 1
 
 
-                val protocol = ProtocolLibrary.getProtocolManager()
                 val json_str = JsonChat()
-                    .textln("hello world")
+                    .textln("--- Claim info ---")
                     .add_color(ChatColor.DARK_AQUA)
+                    .textln("Size $xsize x $zsize")
+                    .textln("${Slp.mformat(avg_cost)} per Block (~${Slp.mformat(avg_distance)} Blocks from Spawn)")
+                    .textln("=> TOTAL: ${Slp.mformat(cost)} for ${amount} Blocks")
+                    .textln(Slp.balance_str(e.player))
+                    .add_color(ChatColor.GREEN)
+                    .text("[[YEA]]")
+                    .add_color(ChatColor.DARK_GREEN)
+                    .add_command("/claim confirm")
+                    .text("[[Cancel..]]")
+                    .add_color(ChatColor.DARK_RED)
+                    .add_command("/claim cancel")
+                    .text(" or just mark new corner points.")
+                    .add_color(ChatColor.WHITE)
+                    .done()
 
-                    .textln("click here to die")
-                    .add_color(ChatColor.DARK_PURPLE)
-                    .add_command("/kill").done()
+                val player = e.player
+                send_chat_packet(json_str, player)
 
-                println(json_str)
-                val comp = WrappedChatComponent.fromJson(json_str)
-
-                val packet = protocol.createPacket(PacketType.Play.Server.CHAT)
-                packet.chatComponents.write(0, comp)
-
-
-                protocol.sendServerPacket(e.player, packet)
-                println(queue)
+                val confirm_element = CommandQueueElement("confirm")
+                confirm_element.value = _ClaimContainer(prospect, cost, sk_world)
+                queue.add(confirm_element)
 
                 // draw rectangle using packets.. DONE
                 // check overlap DONE
-                // print info about claim size, cost, balance
-                // confirm/cancel
-
-
-
+                // print info about claim size, cost, balance DONE
+                // confirm/cancel DONE
             }
-
-
-
         }
+
+
     }
 
-    val gson = Gson()
+    data class _ClaimContainer(val region: ProtectedRegion, val cost: Double, val world: World)
 
-    class JsonChat {
-        val array = JsonArray()
-        init {
-        }
+    fun calculate_block_cost(block: Location, spawn: Location, base_cost: Double, halving_distance: Double): Double {
+        val distance = block.distance(spawn)
+        return pow(0.5, distance/halving_distance) * base_cost
+    }
 
-        fun text(text: String): JsonChat {
-            val obj = JsonObject()
-            obj.addProperty("text", text)
-            array.add(obj)
-            return this
-        }
-
-        fun textln(text: String): JsonChat {
-            return text(text + '\n')
-        }
-
-        fun add_command(command: String): JsonChat {
-            val obj = JsonObject()
-            obj.addProperty("action", "run_command")
-            obj.addProperty("value", command)
-            array.last().asJsonObject.add("clickEvent",obj)
-            return this
-        }
-
-        fun add_color(chat_color: ChatColor): JsonChat {
-            array.last().asJsonObject.addProperty("color", chat_color.name.toLowerCase())
-            return this
-        }
-
-        fun done(): String {
-            return array.toString()
-        }
+    fun calculate_avg_distance(amount: Double, cost: Double, base_cost: Double, halving_distance: Double): Double {
+        return log((cost/base_cost)/amount, 0.5)*halving_distance
     }
 
 
@@ -505,16 +656,12 @@ object ClaimExecutor : CommandExecutor, Listener {
     }
 
     fun reset_map_painting(pl: Player) {
-        println("poofy")
         if(players_.containsKey(pl.uniqueId)) {
-            println("fuwafuwa")
             val paints = players_[pl.uniqueId]!!.filter { it.identifier == "paint_queue" }
             for (paint in paints) {
-                println("eeee")
                 val queue = paint.value as Queue<Location>
                 while(queue.isNotEmpty()) {
                     val elem = queue.poll()
-                    println("fluffy")
                     pl.sendBlockChange(elem, elem.block.blockData)
                 }
             }
@@ -524,6 +671,17 @@ object ClaimExecutor : CommandExecutor, Listener {
 
 
 
+}
+
+fun send_chat_packet(
+    json_str: String,
+    player: Player
+) {
+    val protocol = ProtocolLibrary.getProtocolManager()
+    val comp = WrappedChatComponent.fromJson(json_str)
+    val packet = protocol.createPacket(PacketType.Play.Server.CHAT)
+    packet.chatComponents.write(0, comp)
+    protocol.sendServerPacket(player, packet)
 }
 
 object MoneyExecutor : CommandExecutor {

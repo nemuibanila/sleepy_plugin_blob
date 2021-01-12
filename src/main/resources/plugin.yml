@@ -20,8 +20,10 @@ commands:
       - orerus
     permission: sleepyblob.common
   claim:
-    usage: /claim
+    usage: /claim - to start claiming, /claim cancel - to cancel claiming
     permission: sleepyblob.common
+  showclaims:
+    usage: /showclaims, /showclaims <id>
 
 permissions:
   sleepyblob.admin:
