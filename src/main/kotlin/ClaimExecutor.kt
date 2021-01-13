@@ -3,6 +3,7 @@ import com.sk89q.worldedit.math.BlockVector3
 import com.sk89q.worldedit.world.World
 import com.sk89q.worldguard.WorldGuard
 import com.sk89q.worldguard.protection.flags.*
+import com.sk89q.worldguard.protection.managers.RegionManager
 import com.sk89q.worldguard.protection.regions.*
 import org.bukkit.*
 import org.bukkit.command.*
@@ -17,6 +18,23 @@ import kotlin.math.*
 object ClaimExecutor : CommandExecutor, Listener {
     var players_: HashMap<UUID, Queue<CommandQueueElement>> = HashMap()
 
+    fun player_global_region(player: UUID, regions: RegionManager): ProtectedRegion {
+        val global_region_exists = regions.hasRegion(player.toString())
+        var player_region = if(global_region_exists) {
+            regions.getRegion(player.toString())
+        } else {
+            GlobalProtectedRegion(player.toString())
+        }
+
+        player_region!!.owners.addPlayer(player)
+        player_region!!.setFlag(Flags.FIRE_SPREAD, StateFlag.State.DENY)
+        player_region!!.setFlag(Flags.WATER_FLOW, StateFlag.State.ALLOW)
+        if(!global_region_exists) {
+            regions.addRegion(player_region)
+        }
+        return player_region
+    }
+
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
 
         // setup command chain -> let player set corners with right clicking
@@ -28,7 +46,44 @@ object ClaimExecutor : CommandExecutor, Listener {
                 sender.sendMessage("${ChatColor.RED}Claiming cancelled.")
             }
 
-            if("list".startsWith(args[0]) && sender is Player) {
+            if("friend".startsWith(args[0]) && sender is Player) {
+                val container = WorldGuard.getInstance().platform.regionContainer
+                val regions = container.get(BukkitAdapter.adapt(sender.location.world))!!
+                val global_region = player_global_region(sender.uniqueId, regions)
+
+                if (args.size >= 2) {
+                    val friend_uuid_str = mongo.username_to_uuid(args[1])
+
+                    if (friend_uuid_str == null) {
+                        sender.sendMessage("Could not find ${args[1]}.")
+                        return true
+                    } else {
+                        val friend_uuid = UUID.fromString(friend_uuid_str)
+                        if(global_region.members.contains(friend_uuid)) {
+                            global_region.members.removePlayer(friend_uuid)
+                            sender.sendMessage("Revoked access for ${args[1]}.")
+                            return true
+                        }
+
+                        global_region.members.addPlayer(friend_uuid)
+                        sender.sendMessage("Gave ${args[1]} access to all your claims.")
+                        val fren = sender.server.getPlayer(friend_uuid)
+                        if(fren != null) {
+                            fren.sendMessage("${sender.displayName} gave you access to their claims-")
+                        }
+                        return true
+                    }
+                } else {
+                    sender.sendMessage("These people have access to your claims:")
+                    for(member in global_region.members.players) {
+                        sender.sendMessage(member)
+                    }
+                    sender.sendMessage(" --------------------------------------")
+                    return true
+                }
+            }
+
+            if(("list".startsWith(args[0]) || "delete".startsWith(args[0]))&& sender is Player) {
                 val player_location = BukkitAdapter.adapt(sender.location)
                 val container = WorldGuard.getInstance().platform.regionContainer
                 val regions = container.get(BukkitAdapter.adapt(sender.location.world))
@@ -62,7 +117,8 @@ object ClaimExecutor : CommandExecutor, Listener {
                     }
                     send_chat_packet(prompt.done(), sender)
                     return true
-                } else {
+                }
+                if(args.size > 2) {
                     // with id
                     val to_delete = player_regions.find { it.id == args[1] }
                     if (to_delete == null) {
@@ -220,19 +276,7 @@ object ClaimExecutor : CommandExecutor, Listener {
                     }
                 }
 
-                val global_region_exists = regions.hasRegion(e.player.uniqueId.toString())
-                var player_region = if(global_region_exists) {
-                    regions.getRegion(e.player.uniqueId.toString())
-                } else {
-                    GlobalProtectedRegion(e.player.uniqueId.toString())
-                }
-
-                player_region!!.owners.addPlayer(e.player.uniqueId)
-                player_region!!.setFlag(Flags.FIRE_SPREAD, StateFlag.State.DENY)
-                player_region!!.setFlag(Flags.WATER_FLOW, StateFlag.State.ALLOW)
-                if(!global_region_exists) {
-                    regions.addRegion(player_region)
-                }
+                val player_region = player_global_region(e.player.uniqueId, regions)
                 prospect.parent = player_region
                 prospect.owners.addPlayer(e.player.uniqueId)
 

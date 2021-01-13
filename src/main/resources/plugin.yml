@@ -12,18 +12,26 @@ commands:
     usage: /sl <etc> <etc>
     permission-message: no. sorry.
   pay:
+    description: pay other people orerus
     usage: /pay <player> <amount>
     permission: sleepyblob.common
   money:
+    description: how many orerus you have
     usage: /money
     aliases:
       - orerus
     permission: sleepyblob.common
   claim:
-    usage: /claim - to start claiming, /claim cancel - to cancel claiming
+    description: /claim - to start claiming, /claim cancel - to cancel claiming, /claim list - to see and delete claims, /claim friend - add friend to all your claims
+    usage: /claim - to start claiming, /claim cancel - to cancel claiming, /claim list - to see and delete claims, /claim friend - add friend to all your claims
     permission: sleepyblob.common
   showclaims:
-    usage: /showclaims, /showclaims <id>
+    usage: /showclaims - toggle claim border visibility, /showclaims <id>
+    permission: sleepyblob.common
+  verify:
+    usage: /verify
+    permission: sleepyblob.common
+
 
 permissions:
   sleepyblob.admin:

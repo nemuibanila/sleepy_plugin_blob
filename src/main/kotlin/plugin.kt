@@ -3,6 +3,8 @@ import com.comphenix.protocol.*
 import com.comphenix.protocol.wrappers.WrappedChatComponent
 import com.mongodb.client.model.Filters.eq
 import com.sk89q.worldguard.protection.regions.ProtectedRegion
+import net.md_5.bungee.api.ChatMessageType
+import net.md_5.bungee.api.chat.TextComponent
 import org.bukkit.*
 import org.bukkit.command.*
 import org.bukkit.entity.Player
@@ -25,10 +27,12 @@ class SleepyBlob : JavaPlugin(), Listener {
         instance = this
         server.pluginManager.registerEvents(this, this)
         server.pluginManager.registerEvents(ClaimExecutor, this)
+        server.pluginManager.registerEvents(VerifyExecutor, this)
         getCommand("pay")!!.setExecutor(PayExecutor)
         getCommand("money")!!.setExecutor(MoneyExecutor)
         getCommand("claim")!!.setExecutor(ClaimExecutor)
         getCommand("showclaims")!!.setExecutor(ShowclaimExecutor)
+        getCommand("verify")!!.setExecutor(VerifyExecutor)
         history.make_mining_snapshot()
     }
 
@@ -38,8 +42,19 @@ class SleepyBlob : JavaPlugin(), Listener {
     }
 
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
-        if (sender.hasPermission(ADMIN_PERM) && sender is Player) {
+        if (sender.hasPermission(ADMIN_PERM) ) {
 
+            // triplet command set value_name value
+            if (args.size == 3) {
+                if(args[0] == "set_double") {
+                    try {
+                        Slp.set_ab(args[1], args[2].toDouble())
+                        sender.sendMessage("set ${args[1]} to ${args[2]}")
+                    } catch(e:Exception) {
+                        sender.sendMessage(e.localizedMessage)
+                    }
+                }
+            }
         }
 
         return false
@@ -63,8 +78,11 @@ class SleepyBlob : JavaPlugin(), Listener {
         if (e.player.isOnline) {
             // println(e.block.blockData.asString)
             val reward: Double = mongo.mine_resource(e.block.blockData.material.createBlockData().asString)
-            mongo.add_money(e.player.uniqueId.toString(), reward)
-
+            if (reward > 0) {
+                mongo.add_money(e.player.uniqueId.toString(), reward)
+                val money = mongo.get_money(e.player.uniqueId.toString())
+                e.player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent("${ChatColor.YELLOW}${Slp.mformat(money)} ${ChatColor.GREEN}(+${Slp.smolformat(reward)})${ChatColor.YELLOW} Oreru"))
+            }
             // get current reward DONE
             // -- need datastore DONE
             // update amount in store DONE
@@ -84,9 +102,10 @@ class SleepyBlob : JavaPlugin(), Listener {
     }
 
 
+
+
 }
 
-// returns a command queue element to reset painting
 fun draw_clientside_rect(
     a: Location,
     b: Location,

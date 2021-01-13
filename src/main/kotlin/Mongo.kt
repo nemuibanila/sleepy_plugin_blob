@@ -10,6 +10,7 @@ object mongo {
     val globals: MongoCollection<Document>
     val materials: MongoCollection<Document>
     val history: MongoCollection<Document>
+    val tokens: MongoCollection<Document>
     init {
         client = MongoClients.create()
         db = client.getDatabase("slp_data")
@@ -17,6 +18,7 @@ object mongo {
         globals = db.getCollection("globals")
         materials = db.getCollection("materials")
         history = db.getCollection("history")
+        tokens = db.getCollection("tokens")
         get_pool() // initialize pool
         ensure_basic_resources()
     }
@@ -100,18 +102,19 @@ object mongo {
     - exp
      */
     fun ensure_basic_resources() {
-        ensure_basic_resource(Material.COAL_ORE.createBlockData().asString, 1.0)
-        ensure_basic_resource("minecraft:nether_gold_ore", 1.0)
-        ensure_basic_resource(Material.DIAMOND_ORE.createBlockData().asString, 7.0)
-        ensure_basic_resource(Material.EMERALD_ORE.createBlockData().asString, 7.0)
-        ensure_basic_resource(Material.LAPIS_ORE.createBlockData().asString, 4.0)
-        ensure_basic_resource(Material.NETHER_QUARTZ_ORE.createBlockData().asString, 2.0)
-        ensure_basic_resource(Material.REDSTONE_ORE.createBlockData().asString, 3.0)
+        ensure_basic_resource(Material.COAL_ORE.createBlockData().asString, 10.0)
+        ensure_basic_resource("minecraft:nether_gold_ore", 15.0)
+        ensure_basic_resource(Material.DIAMOND_ORE.createBlockData().asString, 50.0)
+        ensure_basic_resource(Material.EMERALD_ORE.createBlockData().asString, 75.0)
+        ensure_basic_resource(Material.LAPIS_ORE.createBlockData().asString, 35.0)
+        ensure_basic_resource(Material.NETHER_QUARTZ_ORE.createBlockData().asString, 10.0)
+        ensure_basic_resource(Material.REDSTONE_ORE.createBlockData().asString, 25.0)
     }
 
     fun ensure_basic_resource(m: String, worth: Double) {
         val query = materials.find(Filters.eq("material", m))
         if (query.any()) {
+            materials.updateOne(Filters.eq("material", m), Updates.set("value", worth))
             return
         }
 
@@ -127,8 +130,10 @@ object mongo {
             var material = query.first()
             val worth = material["value"] as Double
             val mined = (material["mined"] as Long).toDouble()
+            var pool_amount = (get_pool()["amount"] as Double) * (Slp.pool_percent_worth * worth * 0.01)
+            pool_add_money(-pool_amount)
             materials.updateOne(Filters.eq("material", m), Updates.inc("mined", 1))
-            return (worth * 1000.0)/(1000.0 + worth*mined)
+            return ((worth * 1000.0)/(1000.0 + (worth/10.0)*mined)) + pool_amount
         }
 
         return 0.0
