@@ -223,6 +223,10 @@ object ChestShop : Listener {
             val buyer_get_item = ItemStack(clicked_item)
             buyer_get_item.amount = amount
             val could_not_add = buyer_inventory.addItem(buyer_get_item)
+            if (shop_info.buy_sell == BuySell.BUY) {
+                ghost_inventory!!.addItem(buyer_get_item)
+            }
+
             if(could_not_add.any()) {
                 val couldnt_item = could_not_add[0]
                 amount -= couldnt_item!!.amount
@@ -233,8 +237,15 @@ object ChestShop : Listener {
             if (amount < e.currentItem!!.amount) {
                 e.currentItem!!.amount -= amount
                 seller_inventory.setItem(e.slot, e.currentItem!!)
+                if (shop_info.buy_sell == BuySell.SELL) {
+                    ghost_inventory!!.setItem(e.slot, e.currentItem!!)
+                }
+
             } else {
                 seller_inventory.setItem(e.slot, null)
+                if (shop_info.buy_sell == BuySell.SELL) {
+                    ghost_inventory!!.setItem(e.slot, null)
+                }
             }
 
             actor.updateInventory()
