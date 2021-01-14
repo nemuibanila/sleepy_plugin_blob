@@ -224,7 +224,6 @@ object ChestShop : Listener {
             buyer_get_item.amount = amount
             val could_not_add = buyer_inventory.addItem(buyer_get_item)
             if (shop_info.buy_sell == BuySell.BUY) {
-                ghost_inventory!!.addItem(buyer_get_item)
             }
 
             if(could_not_add.any()) {
