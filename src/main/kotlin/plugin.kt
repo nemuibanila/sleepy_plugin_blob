@@ -28,6 +28,7 @@ class SleepyBlob : JavaPlugin(), Listener {
         server.pluginManager.registerEvents(this, this)
         server.pluginManager.registerEvents(ClaimExecutor, this)
         server.pluginManager.registerEvents(VerifyExecutor, this)
+        server.pluginManager.registerEvents(ChestShop, this)
         getCommand("pay")!!.setExecutor(PayExecutor)
         getCommand("money")!!.setExecutor(MoneyExecutor)
         getCommand("claim")!!.setExecutor(ClaimExecutor)
@@ -79,9 +80,13 @@ class SleepyBlob : JavaPlugin(), Listener {
             // println(e.block.blockData.asString)
             val reward: Double = mongo.mine_resource(e.block.blockData.material.createBlockData().asString)
             if (reward > 0) {
-                mongo.add_money(e.player.uniqueId.toString(), reward)
-                val money = mongo.get_money(e.player.uniqueId.toString())
-                e.player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent("${ChatColor.YELLOW}${Slp.mformat(money)} ${ChatColor.GREEN}(+${Slp.smolformat(reward)})${ChatColor.YELLOW} Oreru"))
+                Bukkit.getScheduler().runTaskAsynchronously(SleepyBlob.instance, Runnable {
+                    mongo.add_money(e.player.uniqueId.toString(), reward)
+                    val money = mongo.get_money(e.player.uniqueId.toString())
+                    Bukkit.getScheduler().runTask(SleepyBlob.instance, Runnable {
+                        e.player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent("${ChatColor.YELLOW}${Slp.mformat(money)} ${ChatColor.GREEN}(+${Slp.smolformat(reward)})${ChatColor.YELLOW} Oreru"))
+                    })
+                })
             }
             // get current reward DONE
             // -- need datastore DONE

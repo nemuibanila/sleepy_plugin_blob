@@ -38,7 +38,7 @@ object PayExecutor : CommandExecutor {
             }
 
             var fee = Slp.transaction_fee * amount
-            val fee_str = ".2f".format(fee)
+            val fee_str = Slp.mformat(fee)
 
             // check transaction
             val balance = mongo.get_money(sender.uniqueId.toString())
@@ -47,6 +47,9 @@ object PayExecutor : CommandExecutor {
                 mongo.add_money(uuid, amount)
                 mongo.pool_add_money(fee)
                 sender.sendMessage("${ChatColor.GREEN}$amount_str ${Slp.currency} sent to $target_str. Transaction fee: $fee_str ${Slp.currency}s")
+                if (target_player != null) {
+                    target_player.sendMessage("You just got $amount_str ${Slp.currency} from ${sender.displayName}.")
+                }
             } else {
                 sender.sendMessage("${ChatColor.RED}Not enough.  ${Slp.balance_str(sender)} \n" +
                         "${ChatColor.AQUA}Transaction: $amount + $fee (${(Slp.transaction_fee *100).roundToInt()}%)")

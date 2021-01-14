@@ -40,6 +40,14 @@ object Slp {
         }
     }
 
+    fun amount_fee(d: Double): Double{
+        return d*transaction_fee
+    }
+
+    fun amount_plus_fee(d: Double):Double{
+        return d + amount_fee(d)
+    }
+
     fun balance_str(p: Player): String {
         return "You currently have ${"%.2f".format(mongo.get_money(p.uniqueId.toString()))} ${currency}s"
     }

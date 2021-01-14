@@ -19,9 +19,11 @@ object ShowclaimExecutor : CommandExecutor {
                 val show_region = regions.getRegion(args[0])
                 if (show_region != null) {
                     draw_region(show_region, sender)
+                    sender.sendMessage("type /showclaims to hide")
                 } else {
                     sender.sendMessage("Region ${args[0]} does not exist.")
                 }
+                return true
             }
 
             // just /showclaims

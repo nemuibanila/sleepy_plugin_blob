@@ -83,7 +83,7 @@ object ClaimExecutor : CommandExecutor, Listener {
                 }
             }
 
-            if(("list".startsWith(args[0]) || "delete".startsWith(args[0]))&& sender is Player) {
+            if(("list".startsWith(args[0]) || "delete".startsWith(args[0])) && sender is Player) {
                 val player_location = BukkitAdapter.adapt(sender.location)
                 val container = WorldGuard.getInstance().platform.regionContainer
                 val regions = container.get(BukkitAdapter.adapt(sender.location.world))
@@ -118,7 +118,7 @@ object ClaimExecutor : CommandExecutor, Listener {
                     send_chat_packet(prompt.done(), sender)
                     return true
                 }
-                if(args.size > 2) {
+                if(args.size >= 2) {
                     // with id
                     val to_delete = player_regions.find { it.id == args[1] }
                     if (to_delete == null) {
@@ -341,11 +341,11 @@ object ClaimExecutor : CommandExecutor, Listener {
 
     fun calculate_block_cost(block: Location, spawn: Location, base_cost: Double, halving_distance: Double): Double {
         val distance = block.distance(spawn)
-        return Math.pow(0.5, distance / halving_distance) * base_cost
+        return Math.pow(0.5, distance / halving_distance) * 0.8 * base_cost + 0.2 * base_cost
     }
 
     fun calculate_avg_distance(amount: Double, cost: Double, base_cost: Double, halving_distance: Double): Double {
-        return log((cost / base_cost) / amount, 0.5) *halving_distance
+        return log(((cost-(0.2*amount*base_cost)) / (0.8*base_cost)) / amount, 0.5) *halving_distance
     }
 
 
