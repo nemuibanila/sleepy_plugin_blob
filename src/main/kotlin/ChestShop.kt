@@ -152,6 +152,7 @@ object ChestShop : Listener {
 
     @EventHandler
     fun onInventoryMoveItem(e: InventoryClickEvent) {
+
         if(e.clickedInventory == null) return
 
         if (e.currentItem != null && e.whoClicked is Player) {
@@ -166,14 +167,6 @@ object ChestShop : Listener {
                 return
             }
 
-            // get amount bought
-            var amount = 1
-            if (e.isLeftClick) {
-                amount = Math.min(8, e.currentItem!!.amount)
-            }
-            if (e.isShiftClick) {
-                amount = e.currentItem!!.amount
-            }
 
             var buyer_uuid = shop_info.player.uniqueId.toString()
             var seller_uuid = shop_info.shop_owner_uuid
@@ -194,8 +187,19 @@ object ChestShop : Listener {
                 if (!inventory_contains_type(buyer_inventory, e.currentItem)) return
             }
 
+            // get amount bought
+            val clicked_item = seller_inventory.getItem(e.slot)
+            if(clicked_item == null) {
+                return
+            }
 
-
+            var amount = 1
+            if (e.isLeftClick) {
+                amount = Math.min(8, clicked_item.amount)
+            }
+            if (e.isShiftClick) {
+                amount = clicked_item.amount
+            }
 
             val actor = shop_info.player
 
@@ -223,14 +227,9 @@ object ChestShop : Listener {
                 return
             }
 
-
-            val clicked_item = e.clickedInventory!!.getItem(e.slot)
-            if(clicked_item == null) {
-                return
-            }
-
             // add to buyers inventory
             val buyer_get_item = ItemStack(clicked_item)
+            amount = Math.min(amount, clicked_item.amount)
             buyer_get_item.amount = amount
             val could_not_add = buyer_inventory.addItem(buyer_get_item)
             if (shop_info.buy_sell == BuySell.BUY) {
@@ -243,13 +242,12 @@ object ChestShop : Listener {
             }
 
             // remove from sellers inventory
-            if (amount < e.currentItem!!.amount) {
-                e.currentItem!!.amount -= amount
-                seller_inventory.setItem(e.slot, e.currentItem!!)
+            if (amount < clicked_item.amount) {
+                clicked_item.amount -= amount
+                seller_inventory.setItem(e.slot, clicked_item)
                 if (shop_info.buy_sell == BuySell.SELL) {
                     ghost_inventory!!.setItem(e.slot, e.currentItem!!)
                 }
-
             } else {
                 seller_inventory.setItem(e.slot, null)
                 if (shop_info.buy_sell == BuySell.SELL) {
