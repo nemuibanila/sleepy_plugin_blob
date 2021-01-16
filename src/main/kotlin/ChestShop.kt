@@ -51,6 +51,10 @@ object ChestShop : Listener {
                 val container = behind.state as Container
                 val uuid = sign_decode_uuid(sign.getLine(2), sign.getLine(3))
                 val cost = cost_str[1].toDouble()
+                if (cost < 0) {
+                    return
+                }
+
                 val player = e.player
                 val shop_info = ShopInfo(player,uuid.toString() ,cost, limit,
                     BlockInfo(block, behind), buy_sell)
@@ -71,9 +75,10 @@ object ChestShop : Listener {
 
     fun verify_sign_shop(lines: Array<String>): Boolean {
         try {
-            if (lines[0].split(' ')[1].toDoubleOrNull() != null) {
-                return true
-            }
+            val double_value = lines[0].split(' ')[1].toDoubleOrNull()
+            if (double_value == null) return false
+            val valid =  double_value >= 0.0
+            return valid
         }
         catch (e: Exception) {
             return false;
@@ -197,6 +202,11 @@ object ChestShop : Listener {
             // check if has enough money
             val buyer_money = mongo.get_money(buyer_uuid)
             val total_base_cost = amount*shop_info.cost
+            if (total_base_cost < 0) {
+                e.whoClicked.sendMessage("negative cost shop. no.")
+                return
+            }
+
             val total_expected_cost = Slp.amount_plus_fee(amount*shop_info.cost)
             if (Slp.amount_plus_fee(buyer_money) < total_expected_cost) {
                 if (shop_info.buy_sell == BuySell.SELL) {
