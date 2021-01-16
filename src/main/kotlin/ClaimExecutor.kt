@@ -244,6 +244,7 @@ object ClaimExecutor : CommandExecutor, Listener {
 
                 if(manhattan_corner_distance < 8) {
                     e.player.sendMessage("that claim area is too small! width+height has to be >7")
+                    return
                 }
 
                 val style = BlockStyle(Material.GOLD_BLOCK.createBlockData(), 3)
