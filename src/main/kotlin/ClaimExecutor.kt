@@ -183,10 +183,13 @@ object ClaimExecutor : CommandExecutor, Listener {
 
             var variable_queue = LinkedList<CommandQueueElement>()
             players_.put(sender.uniqueId, variable_queue)
+
             sender.server.scheduler.runTaskLater(SleepyBlob.instance, Runnable {
-                players_.remove(sender.uniqueId)
-                if (sender.isOnline) {
-                    sender.sendMessage("The /claim you started has timed out.")
+                if(players_.containsKey(sender.uniqueId)) {
+                    players_.remove(sender.uniqueId)
+                    if (sender.isOnline) {
+                        sender.sendMessage("The /claim you started has timed out.")
+                    }
                 }
             }, 6000)
             sender.sendMessage(Slp.start_claiming())
