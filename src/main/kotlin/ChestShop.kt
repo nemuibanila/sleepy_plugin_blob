@@ -187,6 +187,9 @@ object ChestShop : Listener {
                 if (!inventory_contains_type(buyer_inventory, e.currentItem)) return
             }
 
+            // get money first..
+            val buyer_money = mongo.get_money(buyer_uuid)
+
             // get amount bought
             val clicked_item = seller_inventory.getItem(e.slot)
             if(clicked_item == null) {
@@ -204,7 +207,6 @@ object ChestShop : Listener {
             val actor = shop_info.player
 
             // check if has enough money
-            val buyer_money = mongo.get_money(buyer_uuid)
             val total_base_cost = amount*shop_info.cost
             if (total_base_cost < 0) {
                 e.whoClicked.sendMessage("negative cost shop. no.")

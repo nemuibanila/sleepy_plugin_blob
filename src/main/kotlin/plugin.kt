@@ -7,10 +7,11 @@ import net.md_5.bungee.api.ChatMessageType
 import net.md_5.bungee.api.chat.TextComponent
 import org.bukkit.*
 import org.bukkit.command.*
+import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.Player
 import org.bukkit.event.*
 import org.bukkit.event.block.BlockBreakEvent
-import org.bukkit.event.player.*
+import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.*
 import kotlin.math.*
@@ -35,6 +36,11 @@ class SleepyBlob : JavaPlugin(), Listener {
         getCommand("showclaims")!!.setExecutor(ShowclaimExecutor)
         getCommand("verify")!!.setExecutor(VerifyExecutor)
         history.make_mining_snapshot()
+
+        Bukkit.getScheduler().runTaskTimerAsynchronously(this, Runnable {
+            Slp.save_settings()
+            this.logger.info("SleepyBlob settings saved.")
+        }, 36000, 36000)
     }
 
     override fun onDisable() {
@@ -76,8 +82,13 @@ class SleepyBlob : JavaPlugin(), Listener {
 
     @EventHandler
     fun onBlockBreak(e: BlockBreakEvent) {
-        if (e.player.isOnline) {
+        if (e.player.isOnline && e.isDropItems) {
             // println(e.block.blockData.asString)
+            if(e.player.inventory.itemInMainHand == null || e.player.inventory.itemInMainHand.type == Material.AIR || e.player.inventory.itemInMainHand.containsEnchantment(
+                    Enchantment.SILK_TOUCH)) {
+                return
+            }
+
             val reward: Double = mongo.mine_resource(e.block.blockData.material.createBlockData().asString)
             if (reward > 0) {
                 Bukkit.getScheduler().runTaskAsynchronously(SleepyBlob.instance, Runnable {
@@ -96,15 +107,6 @@ class SleepyBlob : JavaPlugin(), Listener {
         }
     }
 
-    @EventHandler
-    fun onPlayerMove(e: PlayerMoveEvent) {
-        //println(e.player.inventory.itemInMainHand)
-        //if (e.player.inventory.itemInMainHand.type == Material.LEATHER) {
-        //
-        //          e.player.sendBlockChange(e.player.location.subtract(0.0, 2.0, 0.0), Material.GOLD_BLOCK.createBlockData())
-        //    }
-        //
-    }
 
 
 
