@@ -1,3 +1,5 @@
+package com.sleepysquish.blob
+
 class CommandQueueElement(identifier:String) {
     val identifier: String = identifier
     var value: Any = Any()

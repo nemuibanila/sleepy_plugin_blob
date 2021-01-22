@@ -1,3 +1,5 @@
+package com.sleepysquish.blob
+
 import com.sk89q.worldedit.bukkit.BukkitAdapter
 import com.sk89q.worldedit.math.BlockVector3
 import com.sk89q.worldedit.world.World
@@ -68,9 +70,7 @@ object ClaimExecutor : CommandExecutor, Listener {
                         global_region.members.addPlayer(friend_uuid)
                         sender.sendMessage("Gave ${args[1]} access to all your claims.")
                         val fren = sender.server.getPlayer(friend_uuid)
-                        if(fren != null) {
-                            fren.sendMessage("${sender.displayName} gave you access to their claims-")
-                        }
+                        fren?.sendMessage("${sender.displayName} gave you access to their claims-")
                         return true
                     }
                 } else {

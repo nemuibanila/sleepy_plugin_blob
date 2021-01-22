@@ -1,4 +1,4 @@
-
+package com.sleepysquish.blob
 import org.bukkit.*
 import org.bukkit.block.*
 import org.bukkit.block.data.Directional
@@ -138,7 +138,7 @@ object ChestShop : Listener {
                 e.setLine(2, uuid_str[0])
                 e.setLine(3, uuid_str[1])
                 e.player.sendMessage("${ChatColor.AQUA}Shop created successfully.")
-                e.player.sendMessage("${ChatColor.AQUA}Each transaction will cost an additional ${Math.round(Slp.transaction_fee*100)}% in fees.")
+                e.player.sendMessage("${ChatColor.AQUA}Each transaction will cost an additional ${Math.round(Slp.transaction_fee *100)}% in fees.")
                 if(e.lines[0].startsWith("buy", true)) {
                     e.player.sendMessage("${ChatColor.AQUA}Add at least 1 of each type of item you want to buy into the chest.")
                 } else if(e.lines[0].startsWith("sell", true)){
@@ -213,10 +213,14 @@ object ChestShop : Listener {
                 return
             }
 
-            val total_expected_cost = Slp.amount_plus_fee(amount*shop_info.cost)
+            val total_expected_cost = Slp.amount_plus_fee(amount * shop_info.cost)
             if (Slp.amount_plus_fee(buyer_money) < total_expected_cost) {
                 if (shop_info.buy_sell == BuySell.SELL) {
-                    e.whoClicked.sendMessage("${ChatColor.YELLOW}Not enough ${Slp.currency}. Cost: ${total_expected_cost} (${total_base_cost} +${Slp.amount_fee(total_base_cost)}) ${Slp.currency}")
+                    e.whoClicked.sendMessage("${ChatColor.YELLOW}Not enough ${Slp.currency}. Cost: ${total_expected_cost} (${total_base_cost} +${
+                        Slp.amount_fee(
+                            total_base_cost
+                        )
+                    }) ${Slp.currency}")
                 } else {
                     e.whoClicked.sendMessage("${ChatColor.GREEN}The shop owner can not afford this :)")
                 }
@@ -261,7 +265,7 @@ object ChestShop : Listener {
             val total_cost = amount*shop_info.cost
             // for selling update limit with total_cost
             if (shop_info.buy_sell == BuySell.BUY && shop_info.shop_limit != null) {
-                shop_info.shop_limit = shop_info.shop_limit!! -Slp.amount_plus_fee(total_cost)
+                shop_info.shop_limit = shop_info.shop_limit!! - Slp.amount_plus_fee(total_cost)
                 val new_limit_text = "%.4f".format(shop_info.shop_limit)
                 val sign = shop_info.block.sign.state as Sign
 

@@ -1,5 +1,5 @@
-name: SleepyBlob
-main: SleepyBlob
+name: com.sleepysquish.blob.SleepyBlob
+main: com.sleepysquish.blob.SleepyBlob
 version: 1.0
 api-version: 1.16
 author: sleepysquish

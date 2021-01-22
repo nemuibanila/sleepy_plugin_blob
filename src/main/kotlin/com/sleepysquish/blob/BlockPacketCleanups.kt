@@ -1,3 +1,5 @@
+package com.sleepysquish.blob
+
 import org.bukkit.entity.Player
 import java.util.*
 import kotlin.collections.HashMap

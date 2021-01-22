@@ -1,4 +1,4 @@
-
+package com.sleepysquish.blob
 import com.mongodb.client.*
 import com.mongodb.client.model.*
 import org.bson.Document
@@ -18,7 +18,7 @@ object mongo {
         players = db.getCollection("players")
         globals = db.getCollection("globals")
         materials = db.getCollection("materials")
-        history = db.getCollection("history")
+        history = db.getCollection("com.sleepysquish.blob.history")
         tokens = db.getCollection("tokens")
         get_pool() // initialize pool
         ensure_basic_resources()
@@ -136,7 +136,6 @@ object mongo {
             materials.updateOne(Filters.eq("material", m), Updates.inc("mined", 1))
             return ((worth * 1000.0)/(1000.0 + (worth/10.0)*mined)) + pool_amount
         }
-
         return 0.0
     }
 

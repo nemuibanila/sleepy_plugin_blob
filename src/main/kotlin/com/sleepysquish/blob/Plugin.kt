@@ -1,4 +1,4 @@
-
+package com.sleepysquish.blob
 import com.comphenix.protocol.*
 import com.comphenix.protocol.wrappers.WrappedChatComponent
 import com.mongodb.client.model.Filters.eq
@@ -39,7 +39,7 @@ class SleepyBlob : JavaPlugin(), Listener {
 
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, Runnable {
             Slp.save_settings()
-            this.logger.info("SleepyBlob settings saved.")
+            this.logger.info("com.sleepysquish.blob.SleepyBlob settings saved.")
         }, 36000, 36000)
     }
 
@@ -84,21 +84,28 @@ class SleepyBlob : JavaPlugin(), Listener {
     fun onBlockBreak(e: BlockBreakEvent) {
         if (e.player.isOnline && e.isDropItems) {
             // println(e.block.blockData.asString)
-            if(e.player.inventory.itemInMainHand == null || e.player.inventory.itemInMainHand.type == Material.AIR || e.player.inventory.itemInMainHand.containsEnchantment(
-                    Enchantment.SILK_TOUCH)) {
+            if(e.player.inventory.itemInMainHand == null || e.player.inventory.itemInMainHand.type == Material.AIR ||
+                e.player.inventory.itemInMainHand.containsEnchantment(Enchantment.SILK_TOUCH)) {
                 return
             }
 
-            val reward: Double = mongo.mine_resource(e.block.blockData.material.createBlockData().asString)
-            if (reward > 0) {
-                Bukkit.getScheduler().runTaskAsynchronously(SleepyBlob.instance, Runnable {
+            val resource = e.block.blockData.material.createBlockData().asString
+            Bukkit.getScheduler().runTaskAsynchronously(instance, Runnable {
+                val reward: Double = mongo.mine_resource(resource)
+                if (reward > 0.0) {
                     mongo.add_money(e.player.uniqueId.toString(), reward)
                     val money = mongo.get_money(e.player.uniqueId.toString())
-                    Bukkit.getScheduler().runTask(SleepyBlob.instance, Runnable {
-                        e.player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent("${ChatColor.YELLOW}${Slp.mformat(money)} ${ChatColor.GREEN}(+${Slp.smolformat(reward)})${ChatColor.YELLOW} Oreru"))
+                    Bukkit.getScheduler().runTask(instance, Runnable {
+                        e.player.spigot().sendMessage(ChatMessageType.ACTION_BAR,
+                            TextComponent("${ChatColor.YELLOW}${Slp.mformat(money)} ${ChatColor.GREEN}(+${
+                                Slp.smolformat(
+                                    reward
+                                )
+                            })${ChatColor.YELLOW} Oreru"))
                     })
-                })
-            }
+                }
+            })
+
             // get current reward DONE
             // -- need datastore DONE
             // update amount in store DONE
@@ -159,7 +166,7 @@ fun draw_clientside_rect(
         player.sendBlockChange(bot_tmp, block_data)
     }
 
-    BlockPacketCleanups.add_cleanup(player.uniqueId, Runnable{
+    BlockPacketCleanups.add_cleanup(player.uniqueId, Runnable {
         while (block_revert_queue.isNotEmpty()) {
             val loc = block_revert_queue.remove()
             player.sendBlockChange(loc, loc.block.blockData)

@@ -1,4 +1,4 @@
-
+package com.sleepysquish.blob
 import com.mongodb.client.model.Filters.eq
 import org.bukkit.ChatColor
 import org.bukkit.command.*

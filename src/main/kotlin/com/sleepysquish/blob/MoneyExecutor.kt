@@ -1,3 +1,5 @@
+package com.sleepysquish.blob
+
 import org.bukkit.command.*
 import org.bukkit.entity.Player
 

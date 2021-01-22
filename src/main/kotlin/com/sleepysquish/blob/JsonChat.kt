@@ -1,3 +1,5 @@
+package com.sleepysquish.blob
+
 import com.google.gson.*
 import org.bukkit.ChatColor
 
@@ -7,8 +9,6 @@ class JsonChat {
     }
 
     val array = JsonArray()
-    init {
-    }
 
     fun text(text: String): JsonChat {
         val obj = JsonObject()

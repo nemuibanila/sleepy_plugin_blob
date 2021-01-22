@@ -1,3 +1,5 @@
+package com.sleepysquish.blob
+
 import com.sk89q.worldedit.bukkit.BukkitAdapter
 import com.sk89q.worldedit.math.BlockVector3
 import com.sk89q.worldguard.WorldGuard

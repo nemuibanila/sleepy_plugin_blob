@@ -1,4 +1,4 @@
-
+package com.sleepysquish.blob
 import com.mongodb.client.model.Filters.eq
 import org.bson.Document
 import org.bukkit.ChatColor
@@ -23,7 +23,7 @@ object Slp {
         if (settings_version != recent_settings_version) {
             for (player in mongo.players.find()) {
                 val uuid = player["uuid"] as String
-                //mongo.set_money(uuid, mongo.get_money(uuid)*10)
+                //com.sleepysquish.blob.mongo.set_money(uuid, com.sleepysquish.blob.mongo.get_money(uuid)*10)
             }
             settings_version = recent_settings_version
         }
@@ -41,7 +41,7 @@ object Slp {
     }
 
     fun amount_fee(d: Double): Double{
-        return d*transaction_fee
+        return d* transaction_fee
     }
 
     fun amount_plus_fee(d: Double):Double{
