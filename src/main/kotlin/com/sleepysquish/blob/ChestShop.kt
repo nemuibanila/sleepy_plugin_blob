@@ -138,7 +138,7 @@ object ChestShop : Listener {
                 e.setLine(2, uuid_str[0])
                 e.setLine(3, uuid_str[1])
                 e.player.sendMessage("${ChatColor.AQUA}Shop created successfully.")
-                e.player.sendMessage("${ChatColor.AQUA}Each transaction will cost an additional ${Math.round(Slp.transaction_fee *100)}% in fees.")
+                e.player.sendMessage("${ChatColor.AQUA}Each transaction will cost an additional ${Math.round(Utility.transaction_fee *100)}% in fees.")
                 if(e.lines[0].startsWith("buy", true)) {
                     e.player.sendMessage("${ChatColor.AQUA}Add at least 1 of each type of item you want to buy into the chest.")
                 } else if(e.lines[0].startsWith("sell", true)){
@@ -188,7 +188,7 @@ object ChestShop : Listener {
             }
 
             // get money first..
-            val buyer_money = mongo.get_money(buyer_uuid)
+            val buyer_money = Persistent.get_money(buyer_uuid)
 
             // get amount bought
             val clicked_item = seller_inventory.getItem(e.slot)
@@ -213,14 +213,14 @@ object ChestShop : Listener {
                 return
             }
 
-            val total_expected_cost = Slp.amount_plus_fee(amount * shop_info.cost)
-            if (Slp.amount_plus_fee(buyer_money) < total_expected_cost) {
+            val total_expected_cost = Utility.amount_plus_fee(amount * shop_info.cost)
+            if (Utility.amount_plus_fee(buyer_money) < total_expected_cost) {
                 if (shop_info.buy_sell == BuySell.SELL) {
-                    e.whoClicked.sendMessage("${ChatColor.YELLOW}Not enough ${Slp.currency}. Cost: ${total_expected_cost} (${total_base_cost} +${
-                        Slp.amount_fee(
+                    e.whoClicked.sendMessage("${ChatColor.YELLOW}Not enough ${Utility.currency}. Cost: ${total_expected_cost} (${total_base_cost} +${
+                        Utility.amount_fee(
                             total_base_cost
                         )
-                    }) ${Slp.currency}")
+                    }) ${Utility.currency}")
                 } else {
                     e.whoClicked.sendMessage("${ChatColor.GREEN}The shop owner can not afford this :)")
                 }
@@ -265,7 +265,7 @@ object ChestShop : Listener {
             val total_cost = amount*shop_info.cost
             // for selling update limit with total_cost
             if (shop_info.buy_sell == BuySell.BUY && shop_info.shop_limit != null) {
-                shop_info.shop_limit = shop_info.shop_limit!! - Slp.amount_plus_fee(total_cost)
+                shop_info.shop_limit = shop_info.shop_limit!! - Utility.amount_plus_fee(total_cost)
                 val new_limit_text = "%.4f".format(shop_info.shop_limit)
                 val sign = shop_info.block.sign.state as Sign
 
@@ -275,11 +275,11 @@ object ChestShop : Listener {
 
             val buy_sell = shop_info.buy_sell
             Bukkit.getScheduler().runTaskAsynchronously(SleepyBlob.instance, Runnable {
-                mongo.add_money(seller_uuid, total_cost)
-                mongo.pool_add_money(Slp.amount_fee(total_cost))
-                mongo.add_money(buyer_uuid, -Slp.amount_plus_fee(total_cost))
-                val amount_shown = if(buy_sell == BuySell.BUY) total_cost else Slp.amount_plus_fee(total_cost)
-                val user = mongo.get_player(shop_info.shop_owner_uuid)["username"] as String
+                Persistent.add_money(seller_uuid, total_cost)
+                Persistent.pool_add_money(Utility.amount_fee(total_cost))
+                Persistent.add_money(buyer_uuid, -Utility.amount_plus_fee(total_cost))
+                val amount_shown = if(buy_sell == BuySell.BUY) total_cost else Utility.amount_plus_fee(total_cost)
+                val user = Persistent.get_player(shop_info.shop_owner_uuid)["username"] as String
                 actor.sendMessage("${ChatColor.AQUA}Shop: ${action} ${amount}x ${clicked_item.type} for ${amount_shown} ${direction} ${user}")
             })
 

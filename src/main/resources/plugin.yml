@@ -1,4 +1,4 @@
-name: com.sleepysquish.blob.SleepyBlob
+name: SleepyBlob
 main: com.sleepysquish.blob.SleepyBlob
 version: 1.0
 api-version: 1.16
@@ -24,7 +24,7 @@ commands:
       - orerus
     permission: sleepyblob.common
   claim:
-    description: /claim - to start claiming, /claim cancel - to cancel claiming, /claim list - to see and delete claims, /claim friend - add friend to all your claims
+    description: Claiming and claim management.
     usage: /claim - to start claiming, /claim cancel - to cancel claiming, /claim list - to see and delete claims, /claim friend - add friend to all your claims
     permission: sleepyblob.common
   showclaims:
@@ -32,6 +32,9 @@ commands:
     permission: sleepyblob.common
   verify:
     usage: /verify
+    permission: sleepyblob.common
+  bonk:
+    usage: /bonk <player>
     permission: sleepyblob.common
 
 

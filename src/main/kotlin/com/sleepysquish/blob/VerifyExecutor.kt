@@ -10,24 +10,25 @@ import java.util.*
 object VerifyExecutor : CommandExecutor, Listener {
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (sender is Player) {
-            val player = mongo.get_player(sender.uniqueId.toString())
-            if (player.containsKey("discord")) return true;
+            val player = Persistent.get_player(sender.uniqueId.toString())
+            if (player.containsKey("discord")) return true
 
-            val from_discord_token = mongo.tokens.findOneAndDelete(eq("username", sender.name))
+            val from_discord_token = Persistent.tokens.findOneAndDelete(eq("username", sender.name))
             if (from_discord_token == null) {
-                assert(false) // they shouldnt even be on the server
+                sender.sendMessage("Your verification token ran out. Please \$verify again.")
+                return true
             }
 
             player.append("discord", from_discord_token["discord"])
             player.append("discord_id", from_discord_token["discord_id"])
-            mongo.players.replaceOne(eq("uuid", sender.uniqueId.toString()), player)
+            Persistent.players.replaceOne(eq("uuid", sender.uniqueId.toString()), player)
             sender.sendMessage("${ChatColor.GREEN} You are sucessfully verified")
         }
         return true
     }
 
     fun is_player_verified(uniqueId: UUID): Boolean {
-        val player_token = mongo.players.find(eq("uuid", uniqueId.toString()))
+        val player_token = Persistent.players.find(eq("uuid", uniqueId.toString()))
         if (player_token.any()) {
             if(player_token.first()!!.contains("discord")){
                 return true
@@ -39,12 +40,13 @@ object VerifyExecutor : CommandExecutor, Listener {
     @EventHandler
     fun onLogin(e: PlayerJoinEvent) {
         // FAILSAFE!!!
-        if ( mongo == null ) {
+        if ( !Persistent.safe ) {
             e.player.kickPlayer("eee")
+            // nooo
         }
 
-        val token = mongo.tokens.find(eq("username", e.player.name))
-        var allow = is_player_verified(e.player.uniqueId)
+        val token = Persistent.tokens.find(eq("username", e.player.name))
+        val allow = is_player_verified(e.player.uniqueId)
         if (!allow) {
             if(token.any()) {
                 SleepyBlob.instance.server.scheduler.runTaskLater(SleepyBlob.instance, Runnable {

@@ -11,10 +11,8 @@ import java.util.*
 object ShowclaimExecutor : CommandExecutor {
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (sender is Player) {
-            val player_location = BukkitAdapter.adapt(sender.location)
             val container = WorldGuard.getInstance().platform.regionContainer
-            val regions = container.get(BukkitAdapter.adapt(sender.location.world))
-            if (regions == null) return false;
+            val regions = container.get(BukkitAdapter.adapt(sender.location.world)) ?: return false
 
             if (args.size > 0) {
                 println(args[0])

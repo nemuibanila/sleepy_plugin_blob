@@ -3,7 +3,6 @@ import com.comphenix.protocol.*
 import com.comphenix.protocol.wrappers.WrappedChatComponent
 import com.mongodb.client.model.Filters.eq
 import com.sk89q.worldguard.protection.regions.ProtectedRegion
-import net.md_5.bungee.api.ChatMessageType
 import net.md_5.bungee.api.chat.TextComponent
 import org.bukkit.*
 import org.bukkit.command.*
@@ -26,6 +25,9 @@ class SleepyBlob : JavaPlugin(), Listener {
 
     override fun onEnable() {
         instance = this
+        Persistent.force_init()
+        if(!Persistent.safe) return
+
         server.pluginManager.registerEvents(this, this)
         server.pluginManager.registerEvents(ClaimExecutor, this)
         server.pluginManager.registerEvents(VerifyExecutor, this)
@@ -35,16 +37,18 @@ class SleepyBlob : JavaPlugin(), Listener {
         getCommand("claim")!!.setExecutor(ClaimExecutor)
         getCommand("showclaims")!!.setExecutor(ShowclaimExecutor)
         getCommand("verify")!!.setExecutor(VerifyExecutor)
+        getCommand("bonk")!!.setExecutor(BonkExecutor)
         history.make_mining_snapshot()
-
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, Runnable {
-            Slp.save_settings()
+            Utility.save_settings()
             this.logger.info("com.sleepysquish.blob.SleepyBlob settings saved.")
         }, 36000, 36000)
     }
 
     override fun onDisable() {
-        Slp.save_settings()
+        if(Persistent.safe) {
+            Utility.save_settings()
+        }
         super.onDisable()
     }
 
@@ -55,7 +59,7 @@ class SleepyBlob : JavaPlugin(), Listener {
             if (args.size == 3) {
                 if(args[0] == "set_double") {
                     try {
-                        Slp.set_ab(args[1], args[2].toDouble())
+                        Utility.set_ab(args[1], args[2].toDouble())
                         sender.sendMessage("set ${args[1]} to ${args[2]}")
                     } catch(e:Exception) {
                         sender.sendMessage(e.localizedMessage)
@@ -69,14 +73,14 @@ class SleepyBlob : JavaPlugin(), Listener {
 
     @EventHandler
     fun onPlayerJoin(e: PlayerJoinEvent) {
-        val uuid_player = mongo.players.find(eq("uuid", e.player.uniqueId.toString())).first()
+        val uuid_player = Persistent.players.find(eq("uuid", e.player.uniqueId.toString())).first()
         if (uuid_player == null) {
             // do special cool stuff
-            mongo.get_player(e.player.uniqueId.toString())
-            mongo.update_uuid_with_name(e.player.uniqueId.toString(), e.player.name)
+            Persistent.get_player(e.player.uniqueId.toString())
+            Persistent.update_uuid_with_name(e.player.uniqueId.toString(), e.player.name)
         } else {
-            mongo.update_uuid_with_name(e.player.uniqueId.toString(), e.player.name)
-            mongo.update_player_version(e.player.uniqueId.toString())
+            Persistent.update_uuid_with_name(e.player.uniqueId.toString(), e.player.name)
+            Persistent.async_update_player_version(e.player.uniqueId.toString())
         }
     }
 
@@ -84,21 +88,21 @@ class SleepyBlob : JavaPlugin(), Listener {
     fun onBlockBreak(e: BlockBreakEvent) {
         if (e.player.isOnline && e.isDropItems) {
             // println(e.block.blockData.asString)
-            if(e.player.inventory.itemInMainHand == null || e.player.inventory.itemInMainHand.type == Material.AIR ||
+            if(e.player.inventory.itemInMainHand.type == Material.AIR ||
                 e.player.inventory.itemInMainHand.containsEnchantment(Enchantment.SILK_TOUCH)) {
                 return
             }
 
             val resource = e.block.blockData.material.createBlockData().asString
             Bukkit.getScheduler().runTaskAsynchronously(instance, Runnable {
-                val reward: Double = mongo.mine_resource(resource)
+                val reward: Double = Persistent.mine_resource(resource)
                 if (reward > 0.0) {
-                    mongo.add_money(e.player.uniqueId.toString(), reward)
-                    val money = mongo.get_money(e.player.uniqueId.toString())
+                    Persistent.add_money(e.player.uniqueId.toString(), reward)
+                    val money = Persistent.get_money(e.player.uniqueId.toString())
                     Bukkit.getScheduler().runTask(instance, Runnable {
-                        e.player.spigot().sendMessage(ChatMessageType.ACTION_BAR,
-                            TextComponent("${ChatColor.YELLOW}${Slp.mformat(money)} ${ChatColor.GREEN}(+${
-                                Slp.smolformat(
+                        e.player.sendActionBar(
+                            TextComponent("${ChatColor.YELLOW}${Utility.mformat(money)} ${ChatColor.GREEN}(+${
+                                Utility.smolformat(
                                     reward
                                 )
                             })${ChatColor.YELLOW} Oreru"))
@@ -136,13 +140,13 @@ fun draw_clientside_rect(
         if (x % style.stipple != 0)
             continue
 
-        var top_tmp = a.clone()
+        val top_tmp = a.clone()
         top_tmp.x = x.toDouble()
         top_tmp.y = a.world!!.getHighestBlockAt(top_tmp.x.toInt(), top_tmp.z.toInt()).y.toDouble()
         block_revert_queue.add(top_tmp)
         player.sendBlockChange(top_tmp, block_data)
 
-        var bot_tmp = b.clone()
+        val bot_tmp = b.clone()
         bot_tmp.x = x.toDouble()
         bot_tmp.y = a.world!!.getHighestBlockAt(bot_tmp.x.toInt(), bot_tmp.z.toInt()).y.toDouble()
         block_revert_queue.add(bot_tmp)
@@ -153,20 +157,20 @@ fun draw_clientside_rect(
         if (z % style.stipple != 0)
             continue
 
-        var top_tmp = a.clone()
+        val top_tmp = a.clone()
         top_tmp.z = z.toDouble()
         top_tmp.y = a.world!!.getHighestBlockAt(top_tmp.x.toInt(), top_tmp.z.toInt()).y.toDouble()
         block_revert_queue.add(top_tmp)
         player.sendBlockChange(top_tmp, block_data)
 
-        var bot_tmp = b.clone()
+        val bot_tmp = b.clone()
         bot_tmp.z = z.toDouble()
         bot_tmp.y = a.world!!.getHighestBlockAt(bot_tmp.x.toInt(), bot_tmp.z.toInt()).y.toDouble()
         block_revert_queue.add(bot_tmp)
         player.sendBlockChange(bot_tmp, block_data)
     }
 
-    BlockPacketCleanups.add_cleanup(player.uniqueId, Runnable {
+    BlockPacketCleanups.add_cleanup(player.uniqueId, {
         while (block_revert_queue.isNotEmpty()) {
             val loc = block_revert_queue.remove()
             player.sendBlockChange(loc, loc.block.blockData)
@@ -180,7 +184,7 @@ fun draw_region(region: ProtectedRegion, player: Player) {
     val own = BlockStyle(Material.EMERALD_BLOCK.createBlockData(), 4)
     val others = BlockStyle(Material.IRON_BLOCK.createBlockData(), 4)
 
-    var draw_with = if(region.owners.contains(player.uniqueId)) {
+    val draw_with = if(region.owners.contains(player.uniqueId)) {
         own
     } else {
         others

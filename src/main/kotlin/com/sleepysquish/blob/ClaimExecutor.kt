@@ -54,7 +54,7 @@ object ClaimExecutor : CommandExecutor, Listener {
                 val global_region = player_global_region(sender.uniqueId, regions)
 
                 if (args.size >= 2) {
-                    val friend_uuid_str = mongo.username_to_uuid(args[1])
+                    val friend_uuid_str = Persistent.block_username_to_uuid(args[1])
 
                     if (friend_uuid_str == null) {
                         sender.sendMessage("Could not find ${args[1]}.")
@@ -153,7 +153,7 @@ object ClaimExecutor : CommandExecutor, Listener {
                     }
 
                     val claim_cont = confirm_element!!.value as _ClaimContainer
-                    if (mongo.get_money(sender.uniqueId.toString()) >= claim_cont.cost) {
+                    if (Persistent.get_money(sender.uniqueId.toString()) >= claim_cont.cost) {
                         val container = WorldGuard.getInstance().platform.regionContainer
                         val regions = container.get(claim_cont.world)!!
                         regions.addRegion(claim_cont.region)
@@ -163,10 +163,10 @@ object ClaimExecutor : CommandExecutor, Listener {
                             return false
                         }
 
-                        mongo.add_money(sender.uniqueId.toString(), -claim_cont.cost)
-                        mongo.pool_add_money(claim_cont.cost)
+                        Persistent.add_money(sender.uniqueId.toString(), -claim_cont.cost)
+                        Persistent.pool_add_money(claim_cont.cost)
                     } else {
-                        sender.sendMessage("You don't have enough ${Slp.currency}s")
+                        sender.sendMessage("You don't have enough ${Utility.currency}s")
                     }
                     BlockPacketCleanups.reset_map_painting(sender)
                     queue.clear()
@@ -192,7 +192,7 @@ object ClaimExecutor : CommandExecutor, Listener {
                     }
                 }
             }, 6000)
-            sender.sendMessage(Slp.start_claiming())
+            sender.sendMessage(Utility.start_claiming())
         }
 
         return true
@@ -292,14 +292,14 @@ object ClaimExecutor : CommandExecutor, Listener {
                 for (x in min_point.x..max_point.x) {
                     for(z in min_point.z..max_point.z) {
                         val cpoint = Location(a.world, x.toDouble(), a.y, z.toDouble())
-                        cost += calculate_block_cost(cpoint, spawn, Slp.base_claim_cost, Slp.halving_distance)
+                        cost += calculate_block_cost(cpoint, spawn, Utility.base_claim_cost, Utility.halving_distance)
                         amount += 1
                     }
                 }
 
                 val avg_distance = calculate_avg_distance(amount.toDouble(), cost,
-                    Slp.base_claim_cost,
-                    Slp.halving_distance
+                    Utility.base_claim_cost,
+                    Utility.halving_distance
                 )
                 val avg_cost = cost/amount
                 val xsize = max_point.x - min_point.x + 1
@@ -310,9 +310,9 @@ object ClaimExecutor : CommandExecutor, Listener {
                     .textln("--- Claim info ---")
                     .add_color(ChatColor.DARK_AQUA)
                     .textln("Size $xsize x $zsize")
-                    .textln("${Slp.mformat(avg_cost)} per Block (~${Slp.mformat(avg_distance)} Blocks from Spawn)")
-                    .textln("=> TOTAL: ${Slp.mformat(cost)} for ${amount} Blocks")
-                    .textln(Slp.balance_str(e.player))
+                    .textln("${Utility.mformat(avg_cost)} per Block (~${Utility.mformat(avg_distance)} Blocks from Spawn)")
+                    .textln("=> TOTAL: ${Utility.mformat(cost)} for ${amount} Blocks")
+                    .textln(Utility.balance_str(e.player))
                     .add_color(ChatColor.GREEN)
                     .text("[[YEA]]")
                     .add_color(ChatColor.DARK_GREEN)

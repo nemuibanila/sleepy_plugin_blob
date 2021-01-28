@@ -1,7 +1,7 @@
-import com.sleepysquish.blob.mongo
+import com.sleepysquish.blob.Persistent
 
 fun main(args: Array<String>) {
-    for (index in mongo.players.listIndexes()) {
+    for (index in Persistent.players.listIndexes()) {
         println(index)
     }
 }

@@ -2,9 +2,9 @@ package com.sleepysquish.blob
 import com.mongodb.client.*
 import com.mongodb.client.model.*
 import org.bson.Document
-import org.bukkit.Material
+import org.bukkit.*
 
-object mongo {
+object Persistent {
     val client: MongoClient
     val db: MongoDatabase
     val players: MongoCollection<Document>
@@ -12,17 +12,30 @@ object mongo {
     val materials: MongoCollection<Document>
     val history: MongoCollection<Document>
     val tokens: MongoCollection<Document>
+
+    var safe: Boolean
     init {
-        client = MongoClients.create()
-        db = client.getDatabase("slp_data")
-        players = db.getCollection("players")
-        globals = db.getCollection("globals")
-        materials = db.getCollection("materials")
-        history = db.getCollection("com.sleepysquish.blob.history")
-        tokens = db.getCollection("tokens")
-        get_pool() // initialize pool
-        ensure_basic_resources()
+        try {
+            client = MongoClients.create()
+            db = client.getDatabase("slp_data")
+            players = db.getCollection("players")
+            globals = db.getCollection("globals")
+            materials = db.getCollection("materials")
+            history = db.getCollection("com.sleepysquish.blob.history")
+            tokens = db.getCollection("tokens")
+            get_pool() // initialize pool
+            ensure_basic_resources()
+            safe = true
+        } catch(e:Exception) {
+            println("blub blub")
+            e.printStackTrace()
+            Bukkit.getServer().shutdown()
+            safe = false
+            throw RuntimeException("MongoDB could not be initialized. Shutting down..")
+        }
     }
+
+    fun force_init() {}
 
     fun store_player(uuid: String) {
         var doc = Document("uuid", uuid)
@@ -58,12 +71,12 @@ object mongo {
         players.updateOne(Filters.eq("uuid", uuid), Updates.set("username", username))
     }
 
-    fun update_player_version(uuid: String) {
+    fun async_update_player_version(uuid: String) {
         // update fields with default values
         add_money(uuid, 0.0)
     }
 
-    fun username_to_uuid(username: String): String? {
+    fun block_username_to_uuid(username: String): String? {
         val query = players.find(Filters.eq("username", username))
         if (query.first() != null) return query.first()["uuid"].toString()
         else return null
@@ -131,7 +144,7 @@ object mongo {
             var material = query.first()
             val worth = material["value"] as Double
             val mined = (material["mined"] as Long).toDouble()
-            var pool_amount = (get_pool()["amount"] as Double) * (Slp.pool_percent_worth * worth * 0.01)
+            var pool_amount = (get_pool()["amount"] as Double) * (Utility.pool_percent_worth * worth * 0.01)
             pool_add_money(-pool_amount)
             materials.updateOne(Filters.eq("material", m), Updates.inc("mined", 1))
             return ((worth * 1000.0)/(1000.0 + (worth/10.0)*mined)) + pool_amount

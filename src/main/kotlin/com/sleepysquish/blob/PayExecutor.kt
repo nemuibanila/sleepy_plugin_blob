@@ -15,9 +15,9 @@ object PayExecutor : CommandExecutor {
             val target_str = args[0]
             val target_player = sender.server.getPlayer(target_str)
 
-            val uuid = target_player?.uniqueId?.toString() ?: mongo.username_to_uuid(target_str)
+            val uuid = target_player?.uniqueId?.toString() ?: Persistent.block_username_to_uuid(target_str)
             if(target_player != null && uuid != null) {
-                mongo.update_uuid_with_name(uuid, target_player.name)
+                Persistent.update_uuid_with_name(uuid, target_player.name)
             }
 
             if (uuid == null) {
@@ -39,22 +39,22 @@ object PayExecutor : CommandExecutor {
                 return true
             }
 
-            var fee = Slp.transaction_fee * amount
-            val fee_str = Slp.mformat(fee)
+            var fee = Utility.transaction_fee * amount
+            val fee_str = Utility.mformat(fee)
 
             // check transaction
-            val balance = mongo.get_money(sender.uniqueId.toString())
+            val balance = Persistent.get_money(sender.uniqueId.toString())
             if (balance > amount + fee) {
-                mongo.add_money(sender.uniqueId.toString(), -amount)
-                mongo.add_money(uuid, amount)
-                mongo.pool_add_money(fee)
-                sender.sendMessage("${ChatColor.GREEN}$amount_str ${Slp.currency} sent to $target_str. Transaction fee: $fee_str ${Slp.currency}s")
+                Persistent.add_money(sender.uniqueId.toString(), -amount)
+                Persistent.add_money(uuid, amount)
+                Persistent.pool_add_money(fee)
+                sender.sendMessage("${ChatColor.GREEN}$amount_str ${Utility.currency} sent to $target_str. Transaction fee: $fee_str ${Utility.currency}s")
                 if (target_player != null) {
-                    target_player.sendMessage("You just got $amount_str ${Slp.currency} from ${sender.displayName}.")
+                    target_player.sendMessage("You just got $amount_str ${Utility.currency} from ${sender.displayName}.")
                 }
             } else {
-                sender.sendMessage("${ChatColor.RED}Not enough.  ${Slp.balance_str(sender)} \n" +
-                        "${ChatColor.AQUA}Transaction: $amount + $fee (${(Slp.transaction_fee *100).roundToInt()}%)")
+                sender.sendMessage("${ChatColor.RED}Not enough.  ${Utility.balance_str(sender)} \n" +
+                        "${ChatColor.AQUA}Transaction: $amount + $fee (${(Utility.transaction_fee *100).roundToInt()}%)")
             }
             return true;
         }

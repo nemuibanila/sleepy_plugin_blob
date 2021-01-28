@@ -4,25 +4,25 @@ import org.bson.Document
 import org.bukkit.ChatColor
 import org.bukkit.entity.Player
 
-object Slp {
-    val settings: Document
-    val recent_settings_version = 3
-    var settings_version = 2
+object Utility {
+    private val settings: Document
+    private val recent_settings_version = 3
+    private var settings_version = 2
     var transaction_fee = 0.2
     var base_claim_cost = 7.0
     var halving_distance = 1000.0
     var pool_percent_worth = 0.003
 
     init {
-        settings = mongo.get_settings() ?: Document("name", "settings")
+        settings = Persistent.get_settings() ?: Document("name", "settings")
         for (kv in settings) {
             set_ab(kv.key, kv.value)
         }
 
         // migrate from balance 2 to balance 3
         if (settings_version != recent_settings_version) {
-            for (player in mongo.players.find()) {
-                val uuid = player["uuid"] as String
+            for (player in Persistent.players.find()) {
+                //val uuid = player["uuid"] as String
                 //com.sleepysquish.blob.mongo.set_money(uuid, com.sleepysquish.blob.mongo.get_money(uuid)*10)
             }
             settings_version = recent_settings_version
@@ -49,7 +49,7 @@ object Slp {
     }
 
     fun balance_str(p: Player): String {
-        return "You currently have ${"%.2f".format(mongo.get_money(p.uniqueId.toString()))} ${currency}s"
+        return "You currently have ${"%.2f".format(Persistent.get_money(p.uniqueId.toString()))} ${currency}s"
     }
 
     fun mformat(money: Double): String {
@@ -70,8 +70,8 @@ object Slp {
         settings["base_claim_cost"] = base_claim_cost
         settings["halving_distance"] = halving_distance
         settings["pool_percent_worth"] = pool_percent_worth
-        mongo.globals.deleteOne(eq("name", "settings"))
-        mongo.globals.insertOne(settings)
+        Persistent.globals.deleteOne(eq("name", "settings"))
+        Persistent.globals.insertOne(settings)
     }
 
 }
