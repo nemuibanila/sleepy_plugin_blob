@@ -1,8 +1,10 @@
 package com.sleepysquish.blob
 
+import kotlinx.coroutines.*
 import org.bukkit.*
 import org.bukkit.command.*
 import org.bukkit.entity.Player
+import java.lang.Runnable
 
 object BonkExecutor : CommandExecutor {
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
@@ -14,12 +16,12 @@ object BonkExecutor : CommandExecutor {
                 return true
             }
 
-            Bukkit.getScheduler().runTaskAsynchronously(SleepyBlob.instance, Runnable BalanceCheck@ {
+            GlobalScope.launch {
                 val balance = Persistent.get_money(sender.uniqueId.toString())
                 val paid = balance > 25.0
                 if(paid) {
                     Persistent.add_money(sender.uniqueId.toString(), -25.0)
-                    Persistent.pool_add_money(25.0)
+                    Persistent.async_pool_add_money(25.0)
                 }
 
                 Bukkit.getScheduler().runTask(SleepyBlob.instance, Runnable Response@ {
@@ -37,7 +39,7 @@ object BonkExecutor : CommandExecutor {
                         target.sendMessage("${ChatColor.LIGHT_PURPLE}BONK!")
                     }
                 })
-            })
+            }
             return true;
         }
         sender.sendMessage("/bonk to bonk someone. 25 Orerus.")

@@ -1,5 +1,6 @@
 package com.sleepysquish.blob
 import com.mongodb.client.model.Filters.eq
+import kotlinx.coroutines.runBlocking
 import org.bson.Document
 import org.bukkit.ChatColor
 import org.bukkit.entity.Player
@@ -14,17 +15,17 @@ object Utility {
     var pool_percent_worth = 0.003
 
     init {
-        settings = Persistent.get_settings() ?: Document("name", "settings")
+        settings = Persistent.block_get_settings() ?: Document("name", "settings")
         for (kv in settings) {
             set_ab(kv.key, kv.value)
         }
 
         // migrate from balance 2 to balance 3
         if (settings_version != recent_settings_version) {
-            for (player in Persistent.players.find()) {
+            //for (player in Persistent.players.find()) {
                 //val uuid = player["uuid"] as String
                 //com.sleepysquish.blob.mongo.set_money(uuid, com.sleepysquish.blob.mongo.get_money(uuid)*10)
-            }
+            //}
             settings_version = recent_settings_version
         }
     }
@@ -48,7 +49,7 @@ object Utility {
         return d + amount_fee(d)
     }
 
-    fun balance_str(p: Player): String {
+    suspend fun balance_str(p: Player): String {
         return "You currently have ${"%.2f".format(Persistent.get_money(p.uniqueId.toString()))} ${currency}s"
     }
 
@@ -70,8 +71,10 @@ object Utility {
         settings["base_claim_cost"] = base_claim_cost
         settings["halving_distance"] = halving_distance
         settings["pool_percent_worth"] = pool_percent_worth
-        Persistent.globals.deleteOne(eq("name", "settings"))
-        Persistent.globals.insertOne(settings)
+        runBlocking {
+            Persistent.globals.deleteOne(eq("name", "settings"))
+            Persistent.globals.insertOne(settings)
+        }
     }
 
 }

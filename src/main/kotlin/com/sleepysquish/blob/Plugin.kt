@@ -3,6 +3,7 @@ import com.comphenix.protocol.*
 import com.comphenix.protocol.wrappers.WrappedChatComponent
 import com.mongodb.client.model.Filters.eq
 import com.sk89q.worldguard.protection.regions.ProtectedRegion
+import kotlinx.coroutines.*
 import net.md_5.bungee.api.chat.TextComponent
 import org.bukkit.*
 import org.bukkit.command.*
@@ -12,6 +13,7 @@ import org.bukkit.event.*
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.plugin.java.JavaPlugin
+import java.lang.Runnable
 import java.util.*
 import kotlin.math.*
 
@@ -73,15 +75,19 @@ class SleepyBlob : JavaPlugin(), Listener {
 
     @EventHandler
     fun onPlayerJoin(e: PlayerJoinEvent) {
-        val uuid_player = Persistent.players.find(eq("uuid", e.player.uniqueId.toString())).first()
-        if (uuid_player == null) {
-            // do special cool stuff
-            Persistent.get_player(e.player.uniqueId.toString())
-            Persistent.update_uuid_with_name(e.player.uniqueId.toString(), e.player.name)
-        } else {
-            Persistent.update_uuid_with_name(e.player.uniqueId.toString(), e.player.name)
-            Persistent.async_update_player_version(e.player.uniqueId.toString())
+        val player_uuid = e.player.uniqueId.toString()
+        GlobalScope.launch {
+            val uuid_player = Persistent.players.find(eq("uuid", player_uuid)).first()
+            if (uuid_player == null) {
+                // do special cool stuff
+                Persistent.get_player(e.player.uniqueId.toString())
+                Persistent.update_uuid_with_name(e.player.uniqueId.toString(), e.player.name)
+            } else {
+                Persistent.update_uuid_with_name(e.player.uniqueId.toString(), e.player.name)
+                Persistent.async_update_player_version(e.player.uniqueId.toString())
+            }
         }
+
     }
 
     @EventHandler
@@ -94,8 +100,8 @@ class SleepyBlob : JavaPlugin(), Listener {
             }
 
             val resource = e.block.blockData.material.createBlockData().asString
-            Bukkit.getScheduler().runTaskAsynchronously(instance, Runnable {
-                val reward: Double = Persistent.mine_resource(resource)
+            GlobalScope.launch {
+                val reward: Double = Persistent.async_mine_resource(resource).await()
                 if (reward > 0.0) {
                     Persistent.add_money(e.player.uniqueId.toString(), reward)
                     val money = Persistent.get_money(e.player.uniqueId.toString())
@@ -108,8 +114,7 @@ class SleepyBlob : JavaPlugin(), Listener {
                             })${ChatColor.YELLOW} Oreru"))
                     })
                 }
-            })
-
+            }
             // get current reward DONE
             // -- need datastore DONE
             // update amount in store DONE

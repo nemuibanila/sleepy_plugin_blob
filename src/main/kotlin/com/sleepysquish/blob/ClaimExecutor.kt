@@ -7,11 +7,13 @@ import com.sk89q.worldguard.WorldGuard
 import com.sk89q.worldguard.protection.flags.*
 import com.sk89q.worldguard.protection.managers.RegionManager
 import com.sk89q.worldguard.protection.regions.*
+import kotlinx.coroutines.*
 import org.bukkit.*
 import org.bukkit.command.*
 import org.bukkit.entity.Player
 import org.bukkit.event.*
 import org.bukkit.event.player.PlayerInteractEvent
+import java.lang.Runnable
 import java.util.*
 import java.util.logging.Level
 import kotlin.collections.HashMap
@@ -153,20 +155,22 @@ object ClaimExecutor : CommandExecutor, Listener {
                     }
 
                     val claim_cont = confirm_element!!.value as _ClaimContainer
-                    if (Persistent.get_money(sender.uniqueId.toString()) >= claim_cont.cost) {
-                        val container = WorldGuard.getInstance().platform.regionContainer
-                        val regions = container.get(claim_cont.world)!!
-                        regions.addRegion(claim_cont.region)
-                        sender.sendMessage("Claim created!")
-                        if (claim_cont.cost < 0) {
-                            sender.server.logger.log(Level.SEVERE, "excuse me what? negative cost")
-                            return false
-                        }
+                    runBlocking {
+                        if (Persistent.get_money(sender.uniqueId.toString()) >= claim_cont.cost) {
+                            val container = WorldGuard.getInstance().platform.regionContainer
+                            val regions = container.get(claim_cont.world)!!
+                            regions.addRegion(claim_cont.region)
+                            sender.sendMessage("Claim created!")
+                            if (claim_cont.cost < 0) {
+                                sender.server.logger.log(Level.SEVERE, "excuse me what? negative cost")
+                                return@runBlocking
+                            }
 
-                        Persistent.add_money(sender.uniqueId.toString(), -claim_cont.cost)
-                        Persistent.pool_add_money(claim_cont.cost)
-                    } else {
-                        sender.sendMessage("You don't have enough ${Utility.currency}s")
+                            Persistent.add_money(sender.uniqueId.toString(), -claim_cont.cost)
+                            Persistent.async_pool_add_money(claim_cont.cost)
+                        } else {
+                            sender.sendMessage("You don't have enough ${Utility.currency}s")
+                        }
                     }
                     BlockPacketCleanups.reset_map_painting(sender)
                     queue.clear()
@@ -305,28 +309,28 @@ object ClaimExecutor : CommandExecutor, Listener {
                 val xsize = max_point.x - min_point.x + 1
                 val zsize = max_point.z - min_point.z + 1
 
+                GlobalScope.launch {
+                    val json_str = JsonChat()
+                        .textln("--- Claim info ---")
+                        .add_color(ChatColor.DARK_AQUA)
+                        .textln("Size $xsize x $zsize")
+                        .textln("${Utility.mformat(avg_cost)} per Block (~${Utility.mformat(avg_distance)} Blocks from Spawn)")
+                        .textln("=> TOTAL: ${Utility.mformat(cost)} for ${amount} Blocks")
+                        .textln(Utility.balance_str(e.player))
+                        .add_color(ChatColor.GREEN)
+                        .text("[[YEA]]")
+                        .add_color(ChatColor.DARK_GREEN)
+                        .add_command("/claim confirm")
+                        .text("[[Cancel..]]")
+                        .add_color(ChatColor.DARK_RED)
+                        .add_command("/claim cancel")
+                        .text(" or just mark new corner points.")
+                        .add_color(ChatColor.WHITE)
+                        .done()
 
-                val json_str = JsonChat()
-                    .textln("--- Claim info ---")
-                    .add_color(ChatColor.DARK_AQUA)
-                    .textln("Size $xsize x $zsize")
-                    .textln("${Utility.mformat(avg_cost)} per Block (~${Utility.mformat(avg_distance)} Blocks from Spawn)")
-                    .textln("=> TOTAL: ${Utility.mformat(cost)} for ${amount} Blocks")
-                    .textln(Utility.balance_str(e.player))
-                    .add_color(ChatColor.GREEN)
-                    .text("[[YEA]]")
-                    .add_color(ChatColor.DARK_GREEN)
-                    .add_command("/claim confirm")
-                    .text("[[Cancel..]]")
-                    .add_color(ChatColor.DARK_RED)
-                    .add_command("/claim cancel")
-                    .text(" or just mark new corner points.")
-                    .add_color(ChatColor.WHITE)
-                    .done()
-
-                val player = e.player
-                send_chat_packet(json_str, player)
-
+                    val player = e.player
+                    send_chat_packet(json_str, player)
+                }
                 val confirm_element = CommandQueueElement("confirm")
                 confirm_element.value = _ClaimContainer(prospect, cost, sk_world)
                 queue.add(confirm_element)

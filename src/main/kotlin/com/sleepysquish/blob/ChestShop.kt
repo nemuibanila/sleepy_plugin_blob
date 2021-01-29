@@ -1,4 +1,5 @@
 package com.sleepysquish.blob
+import kotlinx.coroutines.*
 import org.bukkit.*
 import org.bukkit.block.*
 import org.bukkit.block.data.Directional
@@ -188,8 +189,9 @@ object ChestShop : Listener {
             }
 
             // get money first..
-            val buyer_money = Persistent.get_money(buyer_uuid)
-
+            val buyer_money = runBlocking {
+                return@runBlocking Persistent.get_money(buyer_uuid)
+            }
             // get amount bought
             val clicked_item = seller_inventory.getItem(e.slot)
             if(clicked_item == null) {
@@ -274,14 +276,14 @@ object ChestShop : Listener {
             }
 
             val buy_sell = shop_info.buy_sell
-            Bukkit.getScheduler().runTaskAsynchronously(SleepyBlob.instance, Runnable {
+            GlobalScope.launch {
                 Persistent.add_money(seller_uuid, total_cost)
-                Persistent.pool_add_money(Utility.amount_fee(total_cost))
+                Persistent.async_pool_add_money(Utility.amount_fee(total_cost))
                 Persistent.add_money(buyer_uuid, -Utility.amount_plus_fee(total_cost))
                 val amount_shown = if(buy_sell == BuySell.BUY) total_cost else Utility.amount_plus_fee(total_cost)
                 val user = Persistent.get_player(shop_info.shop_owner_uuid)["username"] as String
                 actor.sendMessage("${ChatColor.AQUA}Shop: ${action} ${amount}x ${clicked_item.type} for ${amount_shown} ${direction} ${user}")
-            })
+            }
 
         }
     }

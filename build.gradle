@@ -6,13 +6,22 @@ plugins {
 
 group 'com.sleepysquish'
 version '1.0-SNAPSHOT'
+compileKotlin {
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+}
 
+compileTestKotlin {
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+}
 
 repositories {
     mavenCentral()
-    maven {
-        url "https://hub.spigotmc.org/nexus/content/repositories/public"
-    }
+    maven { url "https://hub.spigotmc.org/nexus/content/repositories/public" }
+    maven { url 'https://papermc.io/repo/repository/maven-public/' }
     maven { url "https://maven.enginehub.org/repo/" }
     maven { url "https://jitpack.io/" }
     flatDir {
@@ -22,18 +31,15 @@ repositories {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib"
-
-    implementation 'org.spigotmc:spigot-api:1.16.4-R0.1-SNAPSHOT'
-    compile 'org.mongodb:mongodb-driver-sync:4.1.1'
+    compileOnly 'com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT'
+    implementation "org.litote.kmongo:kmongo-coroutine:4.2.3"
     compileOnly 'com.sk89q.worldguard:worldguard-bukkit:7.0.4'
     compileOnly 'com.github.dmulloy2:ProtocolLib:4.6.0-SNAPSHOT'
     implementation "org.jetbrains.kotlin:kotlin-reflect:1.4.21"
-    implementation name: 'Vault'
 }
 
 shadowJar {
     dependencies {
-        exclude(dependency(name: 'Vault'))
     }
 }
 

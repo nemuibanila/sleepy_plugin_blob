@@ -1,5 +1,6 @@
 package com.sleepysquish.blob
 
+import kotlinx.coroutines.*
 import org.bukkit.ChatColor
 import org.bukkit.command.*
 import org.bukkit.entity.Player
@@ -43,18 +44,20 @@ object PayExecutor : CommandExecutor {
             val fee_str = Utility.mformat(fee)
 
             // check transaction
-            val balance = Persistent.get_money(sender.uniqueId.toString())
-            if (balance > amount + fee) {
-                Persistent.add_money(sender.uniqueId.toString(), -amount)
-                Persistent.add_money(uuid, amount)
-                Persistent.pool_add_money(fee)
-                sender.sendMessage("${ChatColor.GREEN}$amount_str ${Utility.currency} sent to $target_str. Transaction fee: $fee_str ${Utility.currency}s")
-                if (target_player != null) {
-                    target_player.sendMessage("You just got $amount_str ${Utility.currency} from ${sender.displayName}.")
+            GlobalScope.launch {
+                val balance = Persistent.get_money(sender.uniqueId.toString())
+                if (balance > amount + fee) {
+                    Persistent.add_money(sender.uniqueId.toString(), -(amount+fee))
+                    Persistent.add_money(uuid, amount)
+                    Persistent.async_pool_add_money(fee)
+                    sender.sendMessage("${ChatColor.GREEN}$amount_str ${Utility.currency} sent to $target_str. Transaction fee: $fee_str ${Utility.currency}s")
+                    if (target_player != null) {
+                        target_player.sendMessage("You just got $amount_str ${Utility.currency} from ${sender.displayName}.")
+                    }
+                } else {
+                    sender.sendMessage("${ChatColor.RED}Not enough.  ${Utility.balance_str(sender)} \n" +
+                            "${ChatColor.AQUA}Transaction: $amount + $fee (${(Utility.transaction_fee *100).roundToInt()}%)")
                 }
-            } else {
-                sender.sendMessage("${ChatColor.RED}Not enough.  ${Utility.balance_str(sender)} \n" +
-                        "${ChatColor.AQUA}Transaction: $amount + $fee (${(Utility.transaction_fee *100).roundToInt()}%)")
             }
             return true;
         }
